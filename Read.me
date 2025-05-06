@@ -1,0 +1,27 @@
+# 🧠 flask-memory-app
+
+A simple Flask web app that stores phrases and tones in memory — locally and temporarily — through both form input and JSON POST requests.
+
+---
+
+## 🌐 Live Preview
+
+When running locally, open [http://127.0.0.1:5000](http://127.0.0.1:5000)
+
+---
+
+## 📋 Features
+
+- Submit a **phrase** and **tone** via HTML form
+- Send data via `POST` using JSON (`Content-Type: application/json`)
+- View all memory entries at `/memory`
+- Rate-limited to prevent spam (`100 requests/min` per IP)
+
+---
+
+## 📦 Requirements
+
+Install dependencies with:
+
+```bash
+pip install -r requirements.txt
