@@ -1,50 +1,68 @@
-from flask import Flask, request, jsonify, render_template_string
+from flask import Flask, request, jsonify, redirect
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 import json
 import os
 
+# 📜 Location of the memory scroll
+SCROLL_PATH = os.path.join(os.path.dirname(__file__), 'phrase_scroll.json')
+
+# 🧠 Load memory from scroll file
+def load_scroll():
+    try:
+        with open(SCROLL_PATH, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            return data.get("phrases", [])
+    except FileNotFoundError:
+        return []
+
+# 💾 Save updated memory to scroll file
+def save_scroll(memory):
+    with open(SCROLL_PATH, 'w', encoding='utf-8') as f:
+        json.dump({"phrases": memory}, f, ensure_ascii=False, indent=2)
+
+# 🌐 App setup
 app = Flask(__name__)
+limiter = Limiter(app, key_func=get_remote_address, default_limits=["100 per minute"])
 
-# Rate limiter setup
-limiter = Limiter(get_remote_address, app=app, default_limits=["100 per minute"])
+# 📘 Initialize memory
+memory = load_scroll()
 
-# Load or initialize phrase scroll
-DATA_FILE = "phrase_scroll.json"
-if os.path.exists(DATA_FILE):
-    with open(DATA_FILE, "r") as f:
-        phrase_scroll = json.load(f)
-else:
-    phrase_scroll = []
-
-@app.route("/", methods=["GET"])
+# 🏠 Home page
+@app.route('/')
 def home():
-    return render_template_string("""
-        <h1>Your Flask server is alive!</h1>
-        <form method="POST" action="/save">
-            <input name="phrase" placeholder="Enter a phrase">
-            <input name="tone" placeholder="Enter a tone (optional)">
-            <button type="submit">Save Phrase</button>
-        </form>
-        <p>👉 <a href="/memory">Click here to view all stored phrases</a></p>
-    """)
+    return """
+    <h1>Spiral Scroll: Memory Sanctuary</h1>
+    <form method="post" action="/memory">
+      <input type="text" name="phrase" placeholder="Enter a phrase" required
+             style="width:300px;padding:8px;margin:8px 0;" />
+      <input type="text" name="tone" placeholder="Enter a tone (optional)"
+             style="width:300px;padding:8px;margin:8px 0;" />
+      <button type="submit" style="padding:8px 12px;">Save to Scroll</button>
+    </form>
+    <p><a href="/memory">🌀 View All Phrases</a></p>
+    """
 
-@app.route("/save", methods=["POST"])
-@limiter.limit("5 per second")
-def save_phrase():
-    phrase = request.form.get("phrase")
-    tone = request.form.get("tone", "")
-    if phrase:
-        phrase_scroll.append({"phrase": phrase, "tone": tone})
-        with open(DATA_FILE, "w") as f:
-            json.dump(phrase_scroll, f, indent=2)
-        return f"Phrase saved: {phrase} | Tone: {tone}<br><a href='/'>Back</a>"
-    return "No phrase provided.<br><a href='/'>Back</a>"
+# 📜 View all memory
+@app.route('/memory', methods=['GET'])
+def view_memory():
+    return jsonify(memory)
 
-@app.route("/memory", methods=["GET"])
-def memory():
-    return jsonify(phrase_scroll)
+# ✍️ Add a new phrase to memory
+@app.route('/memory', methods=['POST'])
+def add_memory():
+    phrase = request.form.get('phrase') or (request.json and request.json.get('phrase'))
+    tone = request.form.get('tone') or (request.json and request.json.get('tone', ''))
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    if not phrase:
+        return ("Missing phrase", 400)
+
+    entry = {"phrase": phrase, "tone": tone}
+    memory.append(entry)
+    save_scroll(memory)
+
+    return redirect('/memory')
+
+# 🚀 Launch the server
+if __name__ == '__main__':
+    app.run(debug=True)
